@@ -1,0 +1,3 @@
+{
+  "mongoURI": "mongodb+srv://<dbuser>:<dbpass>@auth.fwcka.mongodb.net/<dbname>?retryWrites=true&w=majority"
+}
