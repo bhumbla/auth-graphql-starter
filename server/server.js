@@ -1,6 +1,5 @@
 const express = require('express');
 const models = require('./models');
-const { graphqlHTTP } = require('express-graphql');
 const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
@@ -8,6 +7,13 @@ const passportConfig = require('./services/auth');
 const MongoStore = require('connect-mongo');
 const schema = require('./schema/schema');
 const config = require('config');
+const {
+  getGraphQLParameters,
+  processRequest,
+  renderGraphiQL,
+  shouldRenderGraphiQL,
+  sendResult,
+} = require('graphql-helix');
 
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
@@ -58,13 +64,42 @@ app.use(passport.session());
 
 // Instruct Express to pass on any request made to the '/graphql' route
 // to the GraphQL instance.
-app.use(
-  '/graphql',
-  graphqlHTTP({
-    schema,
-    graphiql: true,
-  })
-);
+app.use('/graphql', express.json(), async (req, res) => {
+  // Create a generic Request object that can be consumed by Graphql Helix's API
+  const request = {
+    body: req.body,
+    headers: req.headers,
+    method: req.method,
+    query: req.query,
+  };
+  if (shouldRenderGraphiQL(req)) {
+    res.send(renderGraphiQL({ endpoint: '/graphql' }));
+  } else {
+    // Extract the Graphql parameters from the request
+    const { operationName, query, variables } = getGraphQLParameters(req);
+
+    // Validate and execute the query
+    const result = await processRequest({
+      operationName,
+      query,
+      variables,
+      request,
+      schema,
+      contextFactory: () => req,
+    });
+
+    // processRequest returns one of three types of results depending on how the server should respond
+    // 1) RESPONSE: a regular JSON payload
+    // 2) MULTIPART RESPONSE: a multipart response (when @stream or @defer directives are used)
+    // 3) PUSH: a stream of events to push back down the client for a subscription
+    // The "sendResult" is a NodeJS-only shortcut for handling all possible types of Graphql responses,
+    // See "Advanced Usage" below for more details and customizations available on that layer.
+    sendResult(result, res, (result) => ({
+      data: result.data,
+      errors: result.errors,
+    }));
+  }
+});
 
 // Webpack runs as a middleware.  If any request comes in for the root route ('/')
 // Webpack will respond with the output of the webpack process: an HTML file and
