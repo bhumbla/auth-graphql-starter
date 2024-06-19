@@ -34,7 +34,7 @@
     "react-dom": "^18.1.0",
     "react-router-dom": "^6.3.0",
     "webpack": "^5.76.0",
-    "webpack-dev-middleware": "^5.3.1"
+    "webpack-dev-middleware": "^5.3.4"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",
